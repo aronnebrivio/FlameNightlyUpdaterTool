@@ -24,16 +24,16 @@ upgrade() {
 	printf "\nDownloading Gaia and B2G from Mozilla servers...\n"
 	wget http:$url/gaia.zip
 	wget -r -np -nd --glob=on ftp:$url/b2g-\*.en-US.android-arm.tar.gz
-	printf "\n  Done."
+	printf "\n\tDone."
 	 
 	# Prepare update
 	printf "\nExtracting gaia.zip..."
 	unzip gaia.zip &> /dev/null
-	printf "\n  Done."
+	printf "\n\tDone."
 
 	printf "\nExtracting b2g-(version).en-US.android-arm.tar.gz..."
 	tar -zxvf b2g-*.en-US.android-arm.tar.gz &> /dev/null
-	printf "\n  Done."
+	printf "\n\tDone."
 
 	printf "\nPreparing the environment..."
 	mkdir system
@@ -45,19 +45,22 @@ upgrade() {
 	# Update the phone
 	printf "\nUpdating Flame..."
 	adb shell stop b2g
-	printf "\n  b2g stopped."
+	printf "\n\tb2g stopped."
 	adb remount
-	printf "\n  Device remounted."
+	printf "\n\tDevice remounted."
 	adb shell rm -r /system/b2g
-	printf "\n  /system/b2g wiped."
-	adb push system/b2g /system/b2g
-	printf "\n  Pushed new version of b2g."
+	printf "\n\t/system/b2g wiped."
 
-	printf "\nRestarting b2g..."
-	adb shell start b2g
-	printf "\n\tDone."
+	if adb push system/b2g /system/b2g; then
+		printf "\n\tPushed new version of b2g."
+
+		printf "\nRestarting b2g..."
+		adb shell start b2g
+		printf "\n\tDone."
 	
-	show_sections_title "\n\nAll done!\n"
+		show_sections_title "\n\nUpgrade complete!\n"
+		loop
+	fi
 }
 
 backup() {
@@ -67,20 +70,50 @@ backup() {
 	rm -rf backup &> /dev/null
 	
 	if adb pull /system/b2g backup/; then
-		printf "\n  Done."
-		upgrade
+		show_sections_title "\n\nUpgrade complete!\n"
+		loop
+	fi
+}
+
+restore() {
+	# Restore b2g from backup/
+	show_sections_title "\nRestoring backup from backup/ to /system/b2g...\n"
+	adb shell stop b2g
+	printf "\n\tb2g stopped."
+	adb remount
+	printf "\n\tDevice remounted."
+	adb push system/b2g /system/b2g
+	printf "\n\tPushed b2g backup."
+
+	if adb push backup/ /system/b2g; then
+		printf "\nRestarting b2g..."
+		adb shell start b2g
+		printf "\n\tDone."
+		show_sections_title "\n\nRestore complete!\n"
+		loop
 	fi
 }
 
 loop() {
-	show_sections_title "\nDo you want to backup your b2g version before starting? (Y)es, (N)o: "
+	show_sections_title "\nChoose an option: "
+	printf "\n1) Upgrade"
+	printf "\n2) Backup"
+	printf "\n3) Restore"
+	printf "\n4) Exit\n"
 	read INPUT
 	case $INPUT in
-		[Yy]* )
+		[1]* )
+			upgrade
+		;;
+		[2]* ) 
 			backup
 		;;
-		[Nn]* ) 
-			upgrade
+		[3]* )
+			restore
+		;;
+		[4]* )
+			show_sections_title "\nBye!\n"
+			exit 0
 		;;
 		* ) 
 			printf "\nSorry, try again." 
