@@ -102,6 +102,20 @@ restore() {
 	fi
 }
 
+udev() {
+	show_sections_title "Adding an UDEV rule for Flame (if not present yet)..."
+	var=$(less /etc/udev/rules.d/android.rules | grep 05c6)
+	exit_status=$?
+	if [$exit_status -eq 0]; then
+		echo -e "### UDEV rule for Flame already present."
+		loop
+	else
+		sudo echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="05c6", MODE="0666", GROUP="plugdev"' >> /etc/udev/rules.d/android.rules
+		echo -e "### UDEV rule for Flame added."
+		loop
+	fi
+}
+
 clean_tmp() {
 	echo -e "Cleaning working directory..."
 	for dir in b2g gaia system resources $base $base.zip gaia.zip b2g-*.en-US.android-arm.tar.gz ; do
@@ -124,7 +138,8 @@ loop() {
 	echo -e "2) Upgrade Gonk"
 	echo -e "3) Backup"
 	echo -e "4) Restore"
-	echo -e "5) Exit"
+	echo -e "5) Add UDEV rules"
+	echo -e "6) Exit"
 	read INPUT
 	case $INPUT in
 		[1]* )
@@ -140,6 +155,9 @@ loop() {
 			restore
 		;;
 		[5]* )
+			udev
+		;;
+		[6]* )
 			end
 		;;
 		* ) 
