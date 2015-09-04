@@ -4,7 +4,8 @@
 # VARS #
 ########
 url=//ftp.mozilla.org/pub/mozilla.org/b2g/nightly/latest-mozilla-central-flame-kk
-base=v18D_nightly_v2
+base=v18D_nightly_v4
+b2gv=43.0a1
 
 #############
 # FUNCTIONS #
@@ -19,11 +20,12 @@ show_sections_title() {
 upgrade() {
 	show_sections_title "Upgrade process started."
 	# Clean old files if any
-	clean_temp
+	clean_tmp
 	# Download update files
 	echo -e "Downloading Gaia and B2G from Mozilla servers..."
 	wget http:$url/gaia.zip
-	wget -r -np -nd --glob=on ftp:$url/b2g-\*.en-US.android-arm.tar.gz
+	wget http:$url/b2g-$b2gv.en-US.android-arm.tar.gz
+	#wget -r -np -nd --glob=on ftp:$url/b2g-*.en-US.android-arm.tar.gz
 	echo -e "### Done." 
 	# Prepare update
 	echo -e "Extracting gaia.zip..."
@@ -36,9 +38,12 @@ upgrade() {
 	mkdir system	 
 	mv b2g system/
 	mv gaia/profile/* system/b2g/
-	echo -e "  Done."	 
+	echo -e "### Done."	 
 	# Update the phone
 	echo -e "Updating Flame..."
+	adb wait-for-device
+	adb root
+	echo -e "### adb restarted with root privileges"
 	adb shell stop b2g
 	echo -e "### b2g stopped."
 	adb remount
@@ -58,7 +63,10 @@ upgrade() {
 upgrade_base() {
 	show_sections_title "Upgrading to the lastest base..."
 	# Clean old files if any
-	clean_temp
+	clean_tmp
+	adb wait-for-device
+	adb root
+	echo -e "### adb restarted with root privileges"
 	wget http://cds.w5v8t3u9.hwcdn.net/$base.zip
 	unzip $base.zip
 	echo -e "### Lastest base downloaded and extracted."
@@ -78,6 +86,9 @@ backup() {
 	#backup=`adb pull /system/b2g backup/`
 	show_sections_title "Backing up /system/b2g into 'backup' folder (overwrite folder if already exists)..."
 	rm -rf backup &> /dev/null
+	adb wait-for-device
+	adb root
+	echo -e "### adb restarted with root privileges"
 	if adb pull /system/b2g backup/; then
 		show_sections_title "Upgrade complete!"
 		loop
@@ -87,6 +98,9 @@ backup() {
 restore() {
 	# Restore b2g from backup/
 	show_sections_title "Restoring backup from backup/ to /system/b2g..."
+	adb wait-for-device
+	adb root
+	echo -e "### adb restarted with root privileges"
 	adb shell stop b2g
 	echo -e "### b2g stopped."
 	adb remount
@@ -126,8 +140,18 @@ clean_tmp() {
 	echo -e "### Done."
 }
 
+prepare_adb() {
+	echo -e "Setting ADB"
+	adb start-service
+	echo -e "### adb service started"
+	adb devices
+	adb root
+	echo -e "### adb restarted with root privileges"
+}
+
 end() {
 	clean_tmp
+	adb kill-server
 	show_sections_title "Bye!"
 	exit 0
 }
