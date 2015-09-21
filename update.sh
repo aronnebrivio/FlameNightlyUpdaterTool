@@ -5,7 +5,7 @@
 ########
 url=//ftp.mozilla.org/pub/mozilla.org/b2g/nightly/latest-mozilla-central-flame-kk
 base=v18D_nightly_v4
-b2gv=43.0a1
+b2gv=44.0a1
 
 #############
 # FUNCTIONS #
@@ -21,6 +21,10 @@ upgrade() {
 	show_sections_title "Upgrade process started."
 	# Clean old files if any
 	clean_tmp
+	# Start ADB as sudo
+	sudo adb start-server
+	# Forward
+	sudo adb forward tcp:6000 localfilesystem:/data/local/debugger-socket
 	# Download update files
 	echo -e "Downloading Gaia and B2G from Mozilla servers..."
 	wget http:$url/gaia.zip
@@ -41,22 +45,27 @@ upgrade() {
 	echo -e "### Done."	 
 	# Update the phone
 	echo -e "Updating Flame..."
-	adb wait-for-device
-	adb root
-	echo -e "### adb restarted with root privileges"
-	adb shell stop b2g
-	echo -e "### b2g stopped."
-	adb remount
-	echo -e "### Device remounted."
-	adb shell rm -r /system/b2g
-	echo -e "### /system/b2g wiped."
-	if adb push system/b2g /system/b2g; then
-		echo -e "### Pushed new version of b2g."
-		echo -e "Restarting b2g..."
-		adb shell start b2g
-		echo -e "### Done."
-		show_sections_title "Upgrade complete!"
-		loop
+	if adb wait-for-device; then
+		adb root
+		echo -e "### adb restarted with root privileges"
+		adb shell stop b2g
+		echo -e "### b2g stopped."
+		adb remount
+		# Remount root partition read-write
+		adb shell mount -o rw,remount /
+		# Remount system partition read-write
+		adb shell mount -o rw,remount /system
+		echo -e "### Device remounted with rw privileges."
+		adb shell rm -r /system/b2g
+		echo -e "### /system/b2g wiped."
+		if adb push system/b2g /system/b2g; then
+			echo -e "### Pushed new version of b2g."
+			echo -e "Restarting b2g..."
+			adb shell start b2g
+			echo -e "### Done."
+			show_sections_title "Upgrade complete!"
+			loop
+		fi
 	fi
 }
 
