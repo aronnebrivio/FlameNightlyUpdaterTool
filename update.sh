@@ -24,8 +24,8 @@ upgrade() {
 	clean_tmp
 	# Download update files
 	echo -e "Downloading Gaia and B2G from Mozilla servers..."
-	wget http:$url/gaia.zip
-	wget http:$url/b2g-$b2gv.en-US.android-arm.tar.gz
+	wget --timestamping http:$url/gaia.zip
+	wget --timestamping http:$url/b2g-$b2gv.en-US.android-arm.tar.gz
 	#wget -r -np -nd --glob=on ftp:$url/b2g-*.en-US.android-arm.tar.gz
 	echo -e "### Done." 
 	# Prepare update
