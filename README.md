@@ -15,5 +15,6 @@ Features
 - backup your data
 - restore your data (you will be logged out of most apps)
 - add the UDEV rule for the Flame reference device
+- switch to `nightly-test` FOTA channel
 
 N.B. in order to use this script you have to install ADB on your Linux distribution (for Debian/Ubuntu the package is `android-tools-adb`).   

@@ -3,9 +3,9 @@
 ########
 # VARS #
 ########
-url=//ftp.mozilla.org/pub/mozilla.org/b2g/nightly/latest-mozilla-central-flame-kk
-base=v18D_nightly_v4
-b2gv=44.0a1
+URL=//ftp.mozilla.org/pub/mozilla.org/b2g/nightly/latest-mozilla-central-flame-kk
+BASE=v18D_nightly_v4
+B2GV=45.0a1
 
 #############
 # FUNCTIONS #
@@ -24,8 +24,8 @@ upgrade() {
 	clean_tmp
 	# Download update files
 	echo -e "Downloading Gaia and B2G from Mozilla servers..."
-	wget --timestamping http:$url/gaia.zip
-	wget --timestamping http:$url/b2g-$b2gv.en-US.android-arm.tar.gz
+	wget --timestamping http:$URL/gaia.zip
+	wget --timestamping http:$URL/b2g-$B2GV.en-US.android-arm.tar.gz
 	#wget -r -np -nd --glob=on ftp:$url/b2g-*.en-US.android-arm.tar.gz
 	echo -e "### Done." 
 	# Prepare update
@@ -64,17 +64,21 @@ upgrade() {
 
 upgrade_base() {
 	show_sections_title "Upgrading to the lastest base..."
-	prepare_adb
+	show_sections_title "The device is in fastboot mode yet? [y/n]"
+	read RES
+	if $RES=='n'; then
+		prepare_adb
+	fi
 	# Clean old files if any
 	clean_tmp
-	wget http://cds.w5v8t3u9.hwcdn.net/$base.zip
-	unzip $base.zip
+	wget http://cds.w5v8t3u9.hwcdn.net/$BASE.zip
+	unzip $BASE.zip
 	echo -e "### Lastest base downloaded and extracted."
-	cd $base
+	cd $BASE
 	if sudo ./flash.sh; then
 		echo -e "### Done."
 		cd ..
-		rm -r $base.zip $base/
+		rm -r $BASE.zip $BASE/
 		echo -e "### Removed files."
 		show_sections_title "Base upgrade complete!"
 		quest
@@ -125,9 +129,33 @@ udev() {
 	quest
 }
 
+change_ota() {
+	show_sections_title "Switching to 'nightly_test' FOTA channel..."
+	prepare_adb
+	TODAY=$(date +%s)
+	TWO_DAY_AGO=$((${TODAY} - 172800))
+	echo -e "### Working on prefs.js..."
+	prefs_path=$(adb shell ls /data/b2g/mozilla/*.default/prefs.js | tr -d '\n' | tr -d '\r')
+	mkdir tmp
+	cd tmp
+	adb pull ${prefs_path}
+	cp prefs.js prefs.js.bak
+	echo -e "user_pref(\"app.update.url.override\", \"nightly_test\");" >> prefs.js
+	echo -e "user_pref(\"app.update.lastUpdateTime.background-update-timer\", $TWO_DAY_AGO);" >> prefs.js
+	adb push prefs.js ${prefs_path}
+	sleep 5
+	echo -e "### Done, rebooting the phone"
+	adb reboot
+	cd ..
+	quest
+}
+
 clean_tmp() {
 	echo -e "Cleaning working directory..."
-	for dir in b2g gaia system resources $base $base.zip gaia.zip b2g-*.en-US.android-arm.tar.gz ; do
+	# gaiatime=$(stat -c %y gaia.zip | cut -d '.' -f1)
+	# b2gtime=$(stat -c %y b2g-$b2gv.en-US.android-arm.tar.gz | cut -d '.' -f1)
+	current=$(date +%Y-%m-%d" "%T)
+	for dir in b2g gaia system resources $BASE $BASE.zip gaia.zip b2g-*.en-US.android-arm.tar.gz tmp; do
 		if [ -d $dir ] || [ -f $dir ]; then
 			rm -r $dir;
 		fi
@@ -164,7 +192,8 @@ loop() {
 	echo -e "3) Backup"
 	echo -e "4) Restore"
 	echo -e "5) Add UDEV rules"
-	echo -e "6) Exit"
+	echo -e "6) Change FOTA url"
+	echo -e "7) Exit"
 	read INPUT
 	case $INPUT in
 		[1]* )
@@ -183,6 +212,9 @@ loop() {
 			udev
 		;;
 		[6]* )
+			change_ota
+		;;
+		[7]* )
 			end
 		;;
 		* ) 
