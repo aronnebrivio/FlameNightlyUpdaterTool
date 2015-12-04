@@ -152,6 +152,53 @@ change_ota() {
 	quest
 }
 
+patch_hosts() {
+	show_sections_title "Patching HOSTS file..."
+	prepare_adb
+	adb remount
+	# Remount root partition read-write
+	adb shell mount -o rw,remount /
+	# Remount system partition read-write
+	adb shell mount -o rw,remount /system
+	adb push res/hosts /system/etc/hosts
+	echo -e "### Done, rebooting"
+	adb reboot
+	quest
+}
+
+recover_hosts() {
+	show_sections_title "Recovering stock HOSTS file..."
+	prepare_adb
+	adb remount
+	# Remount root partition read-write
+	adb shell mount -o rw,remount /
+	# Remount system partition read-write
+	adb shell mount -o rw,remount /system
+	adb push res/hosts_orig /system/etc/hosts
+	echo -e "### Done, rebooting"
+	adb reboot
+	quest
+}
+
+host() {
+	show_sections_title "Choose an option:"
+	echo -e "1) Patch HOSTS file (no more ads)"
+	echo -e "2) Recover stock HOSTS file"
+	read INHOST
+	case $INHOST in
+		[1]* )
+			patch_hosts
+		;;
+		[2]* )
+			recover_hosts
+		;;
+		* ) 
+			echo -e "Sorry, try again." 
+			host
+		;;
+	esac
+}
+
 clean_tmp() {
 	echo -e "Cleaning working directory..."
 	# gaiatime=$(stat -c %y gaia.zip | cut -d '.' -f1)
@@ -194,9 +241,10 @@ loop() {
 	echo -e "2) Upgrade Gonk"
 	echo -e "3) Backup"
 	echo -e "4) Restore"
-	echo -e "5) Add UDEV rules"
-	echo -e "6) Change FOTA url"
-	echo -e "7) Exit"
+	echo -e "5) Change FOTA url"
+	echo -e "6) HOSTS file"
+	echo -e "7) Add UDEV rules"
+	echo -e "8) Exit"
 	read INPUT
 	case $INPUT in
 		[1]* )
@@ -212,12 +260,15 @@ loop() {
 			restore
 		;;
 		[5]* )
-			udev
-		;;
-		[6]* )
 			change_ota
 		;;
+		[6]* )
+			host
+		;;
 		[7]* )
+			udev
+		;;
+		[8]* )
 			end
 		;;
 		* ) 
