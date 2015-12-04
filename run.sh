@@ -123,6 +123,8 @@ udev() {
 		echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="05c6", MODE="0666", GROUP="plugdev"' | sudo tee --append /etc/udev/rules.d/android.rules > /dev/null
 		echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", MODE="0666", GROUP="plugdev"' | sudo tee --append /etc/udev/rules.d/android.rules > /dev/null
 		echo -e "### UDEV rule for Flame added."
+		sudo service udev restart
+		echo -e "### UDEV service reloaded, please unplug and replug the device."
 	else
 		echo -e "### UDEV rule for Flame already present."
 	fi
@@ -130,7 +132,7 @@ udev() {
 }
 
 change_ota() {
-	show_sections_title "Switching to 'nightly_test' FOTA channel..."
+	show_sections_title "Switching to 'nightly-latest' FOTA channel..."
 	prepare_adb
 	TODAY=$(date +%s)
 	TWO_DAY_AGO=$((${TODAY} - 172800))
@@ -140,7 +142,7 @@ change_ota() {
 	cd tmp
 	adb pull ${prefs_path}
 	cp prefs.js prefs.js.bak
-	echo -e "user_pref(\"app.update.url.override\", \"nightly_test\");" >> prefs.js
+	echo -e "user_pref(\"app.update.url.override\", \"nightly-latest\");" >> prefs.js
 	echo -e "user_pref(\"app.update.lastUpdateTime.background-update-timer\", $TWO_DAY_AGO);" >> prefs.js
 	adb push prefs.js ${prefs_path}
 	sleep 5
