@@ -10,16 +10,12 @@ B2GV=45.0a1
 #############
 # FUNCTIONS #
 #############
-show_head() {
-	echo -e "\033[1;34m$@\033[0m"
-}
-show_sections_title() {
-	echo -e "\033[1;32m$@\033[0m"
-}
 
+##### UPGRADE #####
 upgrade() {
+	head
 	show_sections_title "Upgrade process started."
-	prepare_adb
+	#prepare_adb
 	# Clean old files if any
 	clean_tmp
 	# Download update files
@@ -44,12 +40,7 @@ upgrade() {
 	echo -e "Updating Flame..."
 	adb shell stop b2g
 	echo -e "### b2g stopped."
-	adb remount
-	# Remount root partition read-write
-	adb shell mount -o rw,remount /
-	# Remount system partition read-write
-	adb shell mount -o rw,remount /system
-	echo -e "### Device remounted with rw privileges."
+	root_remount
 	adb shell rm -r /system/b2g
 	echo -e "### /system/b2g wiped."
 	if adb push system/b2g /system/b2g; then
@@ -63,6 +54,7 @@ upgrade() {
 }
 
 upgrade_base() {
+	head
 	show_sections_title "Upgrading to the lastest base..."
 	show_sections_title "The device is in fastboot mode yet? [y/n]"
 	read RES
@@ -85,38 +77,259 @@ upgrade_base() {
 	fi
 }
 
-backup() {
-	# Backup b2g
-	#backup=`adb pull /system/b2g backup/`
-	show_sections_title "Backing up /system/b2g into 'backup' folder (overwrite folder if already exists)..."
-	prepare_adb
-	rm -rf backup &> /dev/null
-	if adb pull /system/b2g backup/; then
-		show_sections_title "Upgrade complete!"
+change_ota() {
+	head
+	show_sections_title "Switching to 'nightly-latest' FOTA channel..."
+	#prepare_adb
+	TODAY=$(date +%s)
+	TWO_DAY_AGO=$((${TODAY} - 172800))
+	echo -e "### Working on prefs.js..."
+	prefs_path=$(adb shell ls /data/b2g/mozilla/*.default/prefs.js | tr -d '\n' | tr -d '\r')
+	mkdir tmp
+	cd tmp
+	adb pull ${prefs_path}
+	cp prefs.js prefs.js.bak
+	echo -e "user_pref(\"app.update.url.override\", \"nightly-latest\");" >> prefs.js
+	echo -e "user_pref(\"app.update.lastUpdateTime.background-update-timer\", $TWO_DAY_AGO);" >> prefs.js
+	adb push prefs.js ${prefs_path}
+	sleep 5
+	show_sections_title "Switch done, rebooting."
+	adb reboot
+	cd ..
+	quest
+}
+
+########## BACKUP ###############
+backup_sms() {
+	head
+	show_sections_title "Backing up SMSs..."
+	echo -e "NOT IMPLEMENTED YET."
+	quest
+}
+
+backup_contacts() {
+	head
+	show_sections_title "Backing up Contacts..."
+	echo -e "NOT IMPLEMENTED YET."
+	quest
+}
+
+backup_wifi() {
+	head
+	show_sections_title "Backing up WIFI known networks..."
+	#prepare_adb
+	root_remount
+	if adb pull /data/misc/wifi/wpa_supplicant.conf backup/wpa_supplicant.conf; then
+		show_sections_title "Backup complete!"
 		quest
 	fi
 }
 
-restore() {
+backup_sdcard() {
+	head
+	show_sections_title "Backing up Internal Memory datas..."
+	#prepare_adb
+	root_remount
+	if adb pull /sdcard/ backup/sdcard/; then
+		show_sections_title "Backup complete!"
+		quest
+	fi
+}
+
+backup_b2g() {
+	head
+	# Backup b2g
+	show_sections_title "Backing up /system/b2g into 'backup' folder (overwrite folder if already exists)..."
+	#prepare_adb
+	rm -rf backup &> /dev/null
+	if adb pull /system/b2g backup/; then
+		show_sections_title "Backup complete!"
+		quest
+	fi
+}
+
+restore_sms() {
+	head
+	show_sections_title "Restoring SMSs..."
+	echo -e "NOT IMPLEMENTED YET."
+	#adb reboot
+	quest
+}
+
+restore_contacts() {
+	head
+	show_sections_title "Restoring Contacts..."
+	echo -e "NOT IMPLEMENTED YET."
+	#adb reboot
+	quest
+}
+
+restore_wifi() {
+	head
+	show_sections_title "Restoring WIFI known networks..."
+	#prepare_adb
+	root_remount
+	if adb push backup/wpa_supplicant.conf /data/misc/wifi/wpa_supplicant.conf; then
+		adb shell chown system:wifi /data/misc/wifi/wpa_supplicant.conf
+		show_sections_title "Restore complete, rebooting!"
+		adb reboot
+		quest
+	fi
+}
+
+restore_sdcard() {
+	head
+	show_sections_title "Restoring Internal Memory datas..."
+	#prepare_adb
+	root_remount
+	if adb push backup/sdcard/ /sdcard/; then
+		show_sections_title "Restore complete, rebooting!"
+		adb reboot
+		quest
+	fi
+}
+
+restore_b2g() {
+	head
 	# Restore b2g from backup/
 	show_sections_title "Restoring backup from backup/ to /system/b2g..."
-	prepare_adb
+	#prepare_adb
 	adb shell stop b2g
 	echo -e "### b2g stopped."
-	adb remount
-	echo -e "### Device remounted."
+	root_remount
 	adb push system/b2g /system/b2g
 	echo -e "### Pushed b2g backup."
 	if adb push backup/ /system/b2g; then
-		echo -e "Restarting b2g..."
-		adb shell start b2g
-		echo -e "### Done."
-		show_sections_title "Restore complete!"
+		show_sections_title "Restore complete, rebooting!"
+		adb reboot
 		quest
 	fi
 }
 
+backup() {
+	head
+	show_sections_title "Choose an option:"
+	echo -e "1) Backup SMS"
+	echo -e "2) Backup Contacts"
+	echo -e "3) Backup WIFI networks"
+	echo -e "4) Backup Internal Memory Card"
+	echo -e "5) Backup B2G"
+	echo -e "99) Back to main menu"
+	read INBACKUP
+	case $INBACKUP in
+		[1]* )
+			backup_sms
+		;;
+		[2]* )
+			backup_contacts
+		;;
+		[3]* )
+			backup_wifi
+		;;
+		[4]* )
+			backup_sdcard
+		;;
+		[5]* )
+			backup_b2g
+		;;
+		[99]* )
+			first_loop
+		;;
+		* ) 
+			echo -e "Sorry, try again." 
+			sleep 2
+			backup
+		;;
+	esac
+}
+
+restore() {
+	head
+	show_sections_title "Choose an option:"
+	echo -e "1) Restore SMS"
+	echo -e "2) Restore Contacts"
+	echo -e "3) Restore WIFI networks"
+	echo -e "4) Restore Internal Memory Card"
+	echo -e "5) Restore B2G"
+	echo -e "99) Back to main menu"
+	read INRESTORE
+	case $INRESTORE in
+		[1]* )
+			restore_sms
+		;;
+		[2]* )
+			restore_contacts
+		;;
+		[3]* )
+			restore_wifi
+		;;
+		[4]* )
+			restore_sdcard
+		;;
+		[5]* )
+			restore_b2g
+		;;
+		[99]* )
+			first_loop
+		;;
+		* ) 
+			echo -e "Sorry, try again."
+			sleep 2 
+			restore
+		;;
+	esac	
+}
+
+############ MISC ####################
+patch_hosts() {
+	head
+	show_sections_title "Patching HOSTS file..."
+	#prepare_adb
+	root_remount
+	adb push res/hosts /system/etc/hosts
+	show_sections_title "Patch complete, rebooting!"
+	adb reboot
+	quest
+}
+
+restore_hosts() {
+	head
+	show_sections_title "Restoring stock HOSTS file..."
+	#prepare_adb
+	root_remount
+	adb push res/hosts_orig /system/etc/hosts
+	show_sections_title "Restore complete, rebooting!"
+	adb reboot
+	quest
+}
+
+host() {
+	head
+	show_sections_title "Choose an option:"
+	echo -e "1) Patch HOSTS file (no more ads)"
+	echo -e "2) Restore stock HOSTS file"
+	echo -e "99) Back to main menu"
+	read INHOST
+	case $INHOST in
+		[1]* )
+			patch_hosts
+		;;
+		[2]* )
+			restore_hosts
+		;;
+		[99]* )
+			first_loop
+		;;
+		* ) 
+			echo -e "Sorry, try again." 
+			sleep 2
+			host
+		;;
+	esac
+}
+
 udev() {
+	head
 	show_sections_title "Adding an UDEV rule for Flame (if not present yet)..."
 	myvar=$(less /etc/udev/rules.d/android.rules | sed -n 's/.*\(05c6\).*/\1/p')
 	if [[ "${myvar}" = "" ]]; then
@@ -131,72 +344,13 @@ udev() {
 	quest
 }
 
-change_ota() {
-	show_sections_title "Switching to 'nightly-latest' FOTA channel..."
-	prepare_adb
-	TODAY=$(date +%s)
-	TWO_DAY_AGO=$((${TODAY} - 172800))
-	echo -e "### Working on prefs.js..."
-	prefs_path=$(adb shell ls /data/b2g/mozilla/*.default/prefs.js | tr -d '\n' | tr -d '\r')
-	mkdir tmp
-	cd tmp
-	adb pull ${prefs_path}
-	cp prefs.js prefs.js.bak
-	echo -e "user_pref(\"app.update.url.override\", \"nightly-latest\");" >> prefs.js
-	echo -e "user_pref(\"app.update.lastUpdateTime.background-update-timer\", $TWO_DAY_AGO);" >> prefs.js
-	adb push prefs.js ${prefs_path}
-	sleep 5
-	echo -e "### Done, rebooting the phone"
-	adb reboot
-	cd ..
-	quest
+############# OTHERS ###################
+show_head() {
+	echo -e "\033[1;34m$@\033[0m"
 }
 
-patch_hosts() {
-	show_sections_title "Patching HOSTS file..."
-	prepare_adb
-	adb remount
-	# Remount root partition read-write
-	adb shell mount -o rw,remount /
-	# Remount system partition read-write
-	adb shell mount -o rw,remount /system
-	adb push res/hosts /system/etc/hosts
-	echo -e "### Done, rebooting"
-	adb reboot
-	quest
-}
-
-recover_hosts() {
-	show_sections_title "Recovering stock HOSTS file..."
-	prepare_adb
-	adb remount
-	# Remount root partition read-write
-	adb shell mount -o rw,remount /
-	# Remount system partition read-write
-	adb shell mount -o rw,remount /system
-	adb push res/hosts_orig /system/etc/hosts
-	echo -e "### Done, rebooting"
-	adb reboot
-	quest
-}
-
-host() {
-	show_sections_title "Choose an option:"
-	echo -e "1) Patch HOSTS file (no more ads)"
-	echo -e "2) Recover stock HOSTS file"
-	read INHOST
-	case $INHOST in
-		[1]* )
-			patch_hosts
-		;;
-		[2]* )
-			recover_hosts
-		;;
-		* ) 
-			echo -e "Sorry, try again." 
-			host
-		;;
-	esac
+show_sections_title() {
+	echo -e "\033[1;32m$@\033[0m"
 }
 
 clean_tmp() {
@@ -214,11 +368,12 @@ clean_tmp() {
 }
 
 prepare_adb() {
-	echo -e "Setting ADB"
+	show_sections_title "Setting ADB"
 	sudo adb kill-server
 	# Start ADB as sudo
 	sudo adb start-server
 	echo -e "### adb service started"
+	echo -e "### waiting for the device, make sure it's plugged"
 	if adb wait-for-device; then
 		echo -e "### device found"
 		# Forward
@@ -226,6 +381,34 @@ prepare_adb() {
 		adb root
 		echo -e "### adb restarted with root privileges"
 	fi
+}
+
+prepare_adb_first() {
+	show_sections_title "Setting ADB"
+	sudo adb kill-server
+	# Start ADB as sudo
+	sudo adb start-server
+	echo -e "### adb service started"
+	echo -e "### waiting for the device, make sure it's plugged"
+	if adb wait-for-device; then
+		echo -e "### device found"
+		# Forward
+		sudo adb forward tcp:6000 localfilesystem:/data/local/debugger-socket
+		adb root
+		echo -e "### adb restarted with root privileges"
+		sleep 1
+		first_loop
+	fi
+}
+
+root_remount() {
+	echo -e "Mounting / as root"
+	adb remount
+	# Remount root partition read-write
+	adb shell mount -o rw,remount /
+	# Remount system partition read-write
+	adb shell mount -o rw,remount /system
+	echo -e "### device remounted with rw privileges."
 }
 
 end() {
@@ -237,14 +420,19 @@ end() {
 
 loop() {
 	show_sections_title "Choose an option: "
+	echo -e "------- Upgrade --------"
 	echo -e "1) Upgrade Gaia and B2G"
 	echo -e "2) Upgrade Gonk"
-	echo -e "3) Backup"
-	echo -e "4) Restore"
-	echo -e "5) Change FOTA url"
+	echo -e "3) Change FOTA url"
+	echo -e ""
+	echo -e "---- Backup/Restore ----"
+	echo -e "4) Backup"
+	echo -e "5) Restore"
+	echo -e ""
+	echo -e "--------- Misc ---------"
 	echo -e "6) HOSTS file"
 	echo -e "7) Add UDEV rules"
-	echo -e "8) Exit"
+	echo -e "99) Exit"
 	read INPUT
 	case $INPUT in
 		[1]* )
@@ -253,14 +441,14 @@ loop() {
 		[2]* )
 			upgrade_base
 		;;
-		[3]* ) 
+		[3]* )
+			change_ota
+		;;
+		[4]* ) 
 			backup
 		;;
-		[4]* )
-			restore
-		;;
 		[5]* )
-			change_ota
+			restore
 		;;
 		[6]* )
 			host
@@ -268,12 +456,13 @@ loop() {
 		[7]* )
 			udev
 		;;
-		[8]* )
+		[99]* )
 			end
 		;;
 		* ) 
 			echo -e "Sorry, try again." 
-			loop
+			sleep 2
+			first_loop
 		;;
 	esac
 }
@@ -283,7 +472,7 @@ quest() {
 	read RES
 	case $RES in
 		[y]* )
-			loop
+			first_loop
 		;;
 		[n]* )
 			end
@@ -291,10 +480,18 @@ quest() {
 	esac
 }
 
+first_loop() {
+	head
+	loop
+}
+
+head() {
+	clear
+	show_head "#----------------------------------#\n#   Flame Nightly Updater Script   #\n#----------------------------------#\n"
+}
 ########
 # MAIN #
 ########
-clear
-show_head "#----------------------------------#\n#   Flame Nightly Updater Script   #\n#----------------------------------#\n"
-loop
+head
+prepare_adb_first
 
