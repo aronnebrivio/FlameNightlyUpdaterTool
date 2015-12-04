@@ -118,14 +118,14 @@ restore() {
 
 udev() {
 	show_sections_title "Adding an UDEV rule for Flame (if not present yet)..."
-	echo -e "ACTUALLY NOT WORKING. Exiting"
-	#myvar=$(less /etc/udev/rules.d/android.rules | grep 05c6)
-	#if [${#myvar} -eq 0]; then
-	#	sudo echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="05c6", MODE="0666", GROUP="plugdev"' >> /etc/udev/rules.d/android.rules
-	#	echo -e "### UDEV rule for Flame added."
-	#else
-	#	echo -e "### UDEV rule for Flame already present."
-	#fi
+	myvar=$(less /etc/udev/rules.d/android.rules | sed -n 's/.*\(05c6\).*/\1/p')
+	if [[ "${myvar}" = "" ]]; then
+		echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="05c6", MODE="0666", GROUP="plugdev"' | sudo tee --append /etc/udev/rules.d/android.rules > /dev/null
+		echo 'SUBSYSTEM=="usb", ATTR{idVendor}=="18d1", MODE="0666", GROUP="plugdev"' | sudo tee --append /etc/udev/rules.d/android.rules > /dev/null
+		echo -e "### UDEV rule for Flame added."
+	else
+		echo -e "### UDEV rule for Flame already present."
+	fi
 	quest
 }
 
@@ -154,7 +154,8 @@ clean_tmp() {
 	echo -e "Cleaning working directory..."
 	# gaiatime=$(stat -c %y gaia.zip | cut -d '.' -f1)
 	# b2gtime=$(stat -c %y b2g-$b2gv.en-US.android-arm.tar.gz | cut -d '.' -f1)
-	current=$(date +%Y-%m-%d" "%T)
+	TODAY=$(date +%s)
+	TWO_DAY_AGO=$((${TODAY} - 172800))
 	for dir in b2g gaia system resources $BASE $BASE.zip gaia.zip b2g-*.en-US.android-arm.tar.gz tmp; do
 		if [ -d $dir ] || [ -f $dir ]; then
 			rm -r $dir;
